@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canvas Sorting Algorithm Animation - 画布排序算法动画</title>
+  <style>
+    canvas {
+      margin-top: 10px;
+    }
+
+    .flex {
+      display: flex;
+      align-items: center;
+    }
+
+    .flex h4 {
+      flex: 1;
+    }
+
+    .flex button {
+      margin-left: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="flex">
+    <h4>排序算法可视化</h4>
+    <label>数量：</label>
+    <input type="number" name="num" min="2" max="10000" value="100" onchange="numberChange(event)" />
+    <button id="start" type="button" onclick="startSort()">开始</button>
+    <button id="pause" type="button" style="display: none;" onclick="pauseSort()">暂停</button>
+    <button type="button" onclick="resetSort()">重置</button>
+  </div>
+
+  <script>
+    /**
+     * 排序数组长度
+     *
+     * @type {number}
+     */
+    let n = 100;
+    /**
+     * 根据n生成有序数组
+     *
+     * @type {Array}
+     */
+    let array = Array.from({ length: n }, (_, idx) => idx);
+    /**
+     * 打乱后的数组
+     *
+     * @type {Array}
+     */
+    let sourceData = shuffleArray(array);
+
+    /**
+     * 打乱并返回新的数组
+     *
+     * @param {Array} arr 打乱前的数组
+     * @returns {Array} 返回打乱后的数组
+     */
+    function shuffleArray(arr) {
+      const array = [...arr]
+      for (let i = array.length - 1; i > 0; i--) {
+        // 生成一个从0到i的随机索引
+        const j = Math.floor(Math.random() * (i + 1));
+        // 交换array[i]和array[j]
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    /**
+     * 画布初始化
+     *
+     * @param {String} name 排序名称
+     * @returns {[ HTMLCanvasElement, CanvasRenderingContext2D ]}
+     */
+    function initDraw(name) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = window.innerWidth - 16;
+      canvas.height = n + 20;
+
+      document.body.appendChild(canvas);
+
+      return [canvas, ctx];
+    }
+
+    /**
+     * 数据初始化
+     *
+     * @param {String} name 排序名称
+     * @param {Array} array 未排序数据
+     * @returns {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, name: String, data: Array, frameQueue: Array }}
+     */
+    function init(name, array) {
+      let [canvas, ctx] = initDraw(name);
+      let data = [...array];
+
+      draw(name, canvas, ctx, data);
+
+      return {
+        canvas,
+        ctx,
+        name,
+        data,
+        frameQueue: []
+      }
+    }
+
+    /**
+     * 根据数组绘制柱状图
+     *
+     * @param {String} name 排序名称
+     * @param {HTMLCanvasElement} canvas
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {Array} array 需要绘制的数组
+     */
+    function draw(name, canvas, ctx, array) {
+      const barWidth = canvas.width / n;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = "12px serif";
+      ctx.fillStyle = 'black';
+      ctx.fillText(name, 8, 12);
+      array.forEach((item, i) => {
+        ctx.fillStyle = 'steelblue';
+        ctx.fillRect(i * barWidth, canvas.height - item, barWidth, item);
+      });
+    }
+
+    /**
+     * 销毁canvas
+     *
+     * @param {HTMLCanvasElement} canvas 
+     */
+    function destroy(canvas) {
+      document.body.removeChild(canvas);
+    }
+
+    /**
+     * 添加动画到队列里
+     *
+     * @param {Array} frameQueue 
+     * @param {Function} animation 
+     */
+    function addFrameQueue(frameQueue, animation) {
+      frameQueue.push(requestAnimationFrame(() => {
+        animation();
+        frameQueue.shift();
+      }))
+    }
+
+    /**
+     * 冒泡排序
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function bubbleSort() {
+      let {
+        canvas,
+        ctx,
+        name,
+        data,
+        frameQueue
+      } = init('冒泡排序', sourceData);
+      let ci = 0;
+      let cj = 0;
+
+      function animation() {
+        let len = data.length;
+        let next = false;
+        for (let i = ci; i < len; i++) {
+          for (let j = cj; j < len - i - 1; j++) {
+            if (data[j] > data[j + 1]) {
+              [data[j], data[j + 1]] = [data[j + 1], data[j]];
+              next = true;
+
+              if (j === len - i - 2) {
+                cj = 0;
+                ci = i + 1;
+              } else {
+                cj = j + 1;
+                ci = i;
+              }
+
+              draw(name, canvas, ctx, data);
+              addFrameQueue(frameQueue, animation);
+
+              break;
+            } else {
+              if (j === len - i - 2) {
+                cj = 0;
+                ci = i + 1;
+              }
+            }
+          }
+
+          if (next) break;
+        }
+      }
+
+      return { animation, frameQueue, canvas };
+    }
+
+    /**
+     * 选择排序
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function selectionSort() {
+      let {
+        canvas,
+        ctx,
+        name,
+        data,
+        frameQueue
+      } = init('选择排序', sourceData);
+      let ci = 0;
+
+      function animation() {
+        let len = data.length;
+
+        for (let i = ci; i < len - 1; i++) {
+          let minIdx = i;
+
+          for (let j = i + 1; j < len; j++) {
+            if (data[j] < data[minIdx]) {
+              minIdx = j;
+            }
+          }
+
+          if (minIdx !== i) {
+            [data[i], data[minIdx]] = [data[minIdx], data[i]];
+            ci = i;
+
+            draw(name, canvas, ctx, data);
+            addFrameQueue(frameQueue, animation);
+
+            break;
+          }
+        }
+      }
+
+      return { animation, frameQueue, canvas };
+    }
+
+    /**
+     * 插入排序
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function insertionSort() {
+      let {
+        canvas,
+        ctx,
+        name,
+        data,
+        frameQueue
+      } = init('插入排序', sourceData);
+
+      function animation() {
+        let len = data.length;
+
+        for (let i = 1; i < len; i++) {
+          let j = i - 1;
+          let current = data[i];
+
+          while (j >= 0 && data[j] > current) {
+            data[j + 1] = data[j];
+            j--;
+            // 这里绘制后怎么记录i，j？如果这里绘制了，那下面插入时的绘制时间点怎么判断？
+          }
+
+          if (j + 1 !== i) {
+            data[j + 1] = current;
+
+            draw(name, canvas, ctx, data);
+            addFrameQueue(frameQueue, animation);
+
+            break;
+          }
+        }
+      }
+
+      return { animation, frameQueue, canvas };
+    }
+
+    let sortArray = [
+      bubbleSort(),
+      selectionSort(),
+      // insertionSort()
+    ];
+
+    /**
+     * 开始动画
+     */
+    function startSort() {
+      document.getElementById('start').style.display = 'none';
+      document.getElementById('pause').style.display = '';
+      sortArray.forEach(item => {
+        item.animation();
+      });
+    }
+
+    /**
+     * 暂停动画
+     */
+    function pauseSort() {
+      document.getElementById('start').style.display = '';
+      document.getElementById('pause').style.display = 'none';
+      sortArray.forEach(item => {
+        while (item.frameQueue.length) {
+          cancelAnimationFrame(item.frameQueue.pop());
+        }
+      });
+    }
+
+    /**
+     * 重置
+     */
+    function resetSort() {
+      pauseSort();
+      sortArray.forEach(item => {
+        destroy(item.canvas);
+      });
+      sourceData = shuffleArray(array);
+      sortArray = [
+        bubbleSort(),
+        selectionSort(),
+        // insertionSort()
+      ];
+    }
+
+    /**
+     * 修改排序数量
+     */
+    function numberChange(event) {
+      n = Math.floor(event.target.value);
+      array = Array.from({ length: n }, (_, idx) => idx);
+      sourceData = shuffleArray(array);
+
+      resetSort();
+    }
+  </script>
+
+</body>
+
+</html>

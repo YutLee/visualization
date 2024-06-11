@@ -31,8 +31,8 @@
     <h4>排序算法可视化</h4>
     <label>数量：</label>
     <input type="number" name="num" min="2" max="10000" value="100" onchange="numberChange(event)" />
-    <button type="button" onclick="startSort()">开始</button>
-    <button type="button" onclick="pauseSort()">暂停</button>
+    <button id="start" type="button" onclick="startSort()">开始</button>
+    <button id="pause" type="button" style="display: none;" onclick="pauseSort()">暂停</button>
     <button type="button" onclick="resetSort()">重置</button>
   </div>
 
@@ -74,29 +74,11 @@
     }
 
     /**
-     * 画布初始化
-     *
-     * @param {String} name 排序名称
-     * @returns {[ HTMLCanvasElement, CanvasRenderingContext2D ]}
-     */
-    function initDraw(name) {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      canvas.width = window.innerWidth - 16;
-      canvas.height = n + 20;
-
-      document.body.appendChild(canvas);
-
-      return [canvas, ctx];
-    }
-
-    /**
      * 根据数组绘制柱状图
      *
      * @param {String} name 排序名称
-     * @param {HTMLCanvasElement} canvas 排序名称
-     * @param {CanvasRenderingContext2D} ctx 排序名称
+     * @param {HTMLCanvasElement} canvas
+     * @param {CanvasRenderingContext2D} ctx 
      * @param {Array} array 需要绘制的数组
      */
     function draw(name, canvas, ctx, array) {
@@ -113,132 +95,635 @@
     }
 
     /**
-     * 冒泡排序
+     * 销毁canvas
      *
-     * @returns {{ animation: () => void; frameQueue: {}; destroy: () => void; }}
+     * @param {HTMLCanvasElement} canvas 
      */
-    function bubbleSort() {
-      const name = '冒泡排序';
-      let data = [...sourceData];
-      let ci = 0;
-      let cj = 0;
-      let frameQueue = [];
-      let [canvas, ctx] = initDraw(name);
-
-      draw(name, canvas, ctx, data);
-
-      function destroy() {
-        document.body.removeChild(canvas);
-      }
-
-      function animation() {
-        let len = data.length;
-        let next = false;
-        for (let i = ci; i < len; i++) {
-          for (let j = cj; j < len - i - 1; j++) {
-            if (data[j] > data[j + 1]) {
-              [data[j], data[j + 1]] = [data[j + 1], data[j]];
-              next = true;
-
-              if (j === len - i - 2) {
-                cj = 0;
-                ci = i + 1;
-              } else {
-                cj = j + 1;
-                ci = i;
-              }
-
-              draw(name, canvas, ctx, data);
-              frameQueue.push(requestAnimationFrame(() => {
-                animation();
-                frameQueue.shift();
-              }))
-              break;
-            } else {
-              if (j === len - i - 2) {
-                cj = 0;
-                ci = i + 1;
-              }
-            }
-          }
-
-          if (next) break;
-        }
-      }
-
-      return { animation, frameQueue, destroy };
+    function destroy(canvas) {
+      document.body.removeChild(canvas);
     }
 
     /**
-     * 选择排序
+     * 排序动画
      *
-     * @returns {{ animation: () => void; frameQueue: {}; destroy: () => void; }}
+     * @param {String} name // 排序名称
+     * @param {Array} array // 需要排序的数据
+     * @param {Function} sort // 排序方法
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
      */
-    function selectionSort() {
-      const name = '选择排序';
-      let data = [...sourceData];
-      let ci = 0;
+    function sortAnimation(name, array, sort) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      let data = [...array];
       let frameQueue = [];
-      let [canvas, ctx] = initDraw(name);
+      let currentIdx = 0;
+      let datas = sort(data);
 
-      draw(name, canvas, ctx, data);
+      canvas.width = window.innerWidth - 32;
+      canvas.height = n + 20;
 
-      function destroy() {
-        document.body.removeChild(canvas);
+      document.body.appendChild(canvas);
+      draw(name, canvas, ctx, [...array]);
+
+      function animation(idx = currentIdx) {
+        if (idx < datas.length) {
+          draw(name, canvas, ctx, datas[idx]);
+          frameQueue.push(requestAnimationFrame(() => {
+            currentIdx = idx + 1;
+            animation(idx + 1);
+            frameQueue.shift();
+          }))
+        }
       }
 
-      function animation() {
+      return { animation, frameQueue, canvas };
+    }
+
+
+    /**
+     * 冒泡排序（Bubble Sort）是一种简单的排序算法，它重复地遍历待排序的数列，一次比较两个元素，如果它们的顺序错误就把它们交换过来。遍历数列的工作是重复地进行直到没有再需要交换，也就是说该数列已经排序完成。
+     * 
+     * 算法步骤：
+     * 1、开始：从数组的第一个元素开始。
+     * 2、比较相邻元素：比较每对相邻元素，如果第一个元素比第二个大，则交换它们。
+     * 3、移动到最后：进行到数组的最后一个元素，这样最大的元素会被“冒泡”到它应该在的位置。
+     * 4、重复过程：对数组的其余部分重复以上步骤，每进行一轮，就有一个最大的元素被放到它应该在的位置。
+     * 5、结束条件：当进行一轮没有发生任何交换时，排序完成。
+     * 
+     * 算法特性：
+     * 时间复杂度：冒泡排序的平均时间复杂度和最坏时间复杂度都是 O(n^2)，其中 n 是数组的长度。在最好的情况下（即数组已经是排序状态），时间复杂度是 O(n)。
+     * 空间复杂度：冒泡排序的空间复杂度是 O(1)，因为它是原地排序算法，不需要额外的存储空间。
+     * 稳定性：冒泡排序是稳定的排序算法，因为它不会改变相同元素之间的顺序。
+     * 适用场景：由于其实现简单，冒泡排序适用于小型数据集或基本有序的数据集。但对于大型数据集，由于其较低的效率，通常不推荐使用。
+     * 
+     * 冒泡排序是教学和理解排序算法的一个很好的起点，尽管它在实际应用中的性能不如其他更高级的排序算法。
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function bubbleSort() {
+      return sortAnimation('冒泡排序', sourceData, function (data) {
+        let datas = [];
         let len = data.length;
 
-        for (let i = ci; i < len - 1; i++) {
-          let minIdx = i;
+        for (let i = 0; i < len; i++) {
+          for (let j = 0; j < len - i - 1; j++) {
+            if (data[j] > data[j + 1]) {
+              [data[j], data[j + 1]] = [data[j + 1], data[j]];
+              datas.push([...data]);
+            }
+          }
+        }
 
+        return datas;
+      })
+    }
+
+    /**
+     * 选择排序（Selection Sort）是一种简单的排序算法，其工作原理是每次从待排序的数据中选出最小（或最大）的元素，将其放在已排序序列的末尾。这个过程中，选择排序将位置在未排序部分的元素，按大小顺序交换到已排序部分的末尾。
+     *
+     * 算法步骤：
+     * 1、找到最小值：在未排序的数组中找到最小（或最大）的元素。
+     * 2、交换位置：将找到的最小元素与未排序部分的第一个元素交换位置。
+     * 3、移动边界：将未排序的边界向前移动一位。
+     * 4、重复过程：从新的未排序部分重复以上步骤，直到所有元素都排序完成。
+     * 
+     * 算法特性：
+     * 时间复杂度：选择排序的时间复杂度是 O(n^2)，其中 n 是数组的长度。无论数组是否已经排序，它都需要进行相同次数的比较和交换。
+     * 空间复杂度：选择排序的空间复杂度是 O(1)，因为它是原地排序算法，不需要额外的存储空间。
+     * 稳定性：选择排序是不稳定的排序算法，因为在交换过程中相同元素的顺序可能会被改变。
+     * 适用场景：选择排序适用于小型数据集或基本有序的数据集。对于大型数据集，由于其较低的效率，通常不推荐使用。
+     * 
+     * 选择排序的主要优点是它的实现简单，但相比于其他排序算法，如快速排序、归并排序或堆排序，它的性能通常较差。
+     * 
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function selectionSort() {
+      return sortAnimation('选择排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
+
+        for (let i = 0; i < len - 1; i++) {
+          let minIdx = i;
           for (let j = i + 1; j < len; j++) {
             if (data[j] < data[minIdx]) {
               minIdx = j;
             }
           }
-
           if (minIdx !== i) {
             [data[i], data[minIdx]] = [data[minIdx], data[i]];
-            ci = i;
+            datas.push([...data]);
+          }
+        }
 
-            draw(name, canvas, ctx, data);
-            frameQueue.push(requestAnimationFrame(() => {
-              animation();
-              frameQueue.shift();
-            }))
+        return datas;
+      })
+    }
 
-            break;
+    /**
+     * 插入排序（Insertion Sort）是一种简单直观的排序算法，它的工作原理是将一个记录插入到已经排好序的有序表中，从而得到一个新的、记录数增加1的有序表。它是稳定的排序方法。
+     *
+     * 算法步骤：
+     * 1、假设初始：假设第一个元素（数组的第一个元素）已经排序。
+     * 2、从未排序的子序列中取出第一个元素：将当前元素保存在临时变量中。
+     * 3、从未排序的序列中，从后向前扫描：如果该元素（已排序）大于新元素，将该元素移到下一位置。
+     * 4、重复步骤3：继续扫描，直到找到已排序的元素小于或等于新元素的位置。
+     * 5、将新元素插入到该位置：将新元素插入到找到的位置。
+     * 6、重复过程：对未排序序列中的下一个元素重复步骤2到5。
+     * 
+     * 算法特性：
+     * 时间复杂度：平均和最坏情况下的时间复杂度都是 O(n^2)，其中 n 是数组的长度。最好的情况下（数组已经排序），时间复杂度是 O(n)。
+     * 空间复杂度：插入排序的空间复杂度是 O(1)，因为它是原地排序算法，不需要额外的存储空间。
+     * 稳定性：插入排序是稳定的排序算法，因为它不会改变相同元素之间的顺序。
+     * 适用场景：插入排序适用于小型数据集或基本有序的数据集，因为它在这些情况下效率较高。
+     * 
+     * 插入排序是教学和理解排序算法的基础，并且由于其简单性，在实际应用中也有一定的用途。
+     * 
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function insertionSort() {
+      return sortAnimation('插入排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
+
+        for (let i = 1; i < len; i++) {
+          let j = i - 1;
+          let current = data[i];
+
+          while (j >= 0 && data[j] > current) {
+            data[j + 1] = data[j];
+            j--;
+            datas.push([...data]);
+          }
+
+          if (j + 1 !== i) {
+            data[j + 1] = current;
+            datas.push([...data]);
+          }
+        }
+
+        return datas;
+      });
+    }
+
+    /**
+     * 归并排序（Merge Sort）是一种分治算法，采用递归的方法将数组分成更小的子数组，然后将这些子数组排序并合并以产生有序的输出。这种算法以其稳定性和效率而闻名，特别是对于大型数据集。
+     *
+     * 算法步骤：
+     * 1、分解：如果数组只有一个元素或为空，它已经是有序的，直接返回。否则，将数组分成两个大致相等的子数组。
+     * 2、递归排序：对两个子数组进行归并排序。
+     * 3、合并：将排序后的两个子数组合并为一个有序数组。
+     * 
+     * 算法特性：
+     * 时间复杂度：归并排序的时间复杂度在所有情况下都是 O(n log n)，其中 n 是数组的长度。
+     * 空间复杂度：归并排序的空间复杂度是 O(n)，因为它需要额外的空间来存储合并后的数组。
+     * 稳定性：归并排序是稳定的排序算法，因为它保持了相同元素的相对顺序。
+     * 适用场景：归并排序适用于大型数据集，特别是当数据量大且基本无序时。由于其空间复杂度较高，对于极小的数据集或内存受限的环境可能不是最佳选择。
+     * 
+     * 归并排序在实际应用中非常有效，尤其是在需要稳定排序的情况下。然而，由于它需要额外的内存空间，因此在内存受限的环境中可能需要考虑其他算法。
+     * 
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function mergeSort() {
+      return sortAnimation('归并排序', sourceData, function (data) {
+        let datas = [];
+
+        function mSort(arr) {
+          if (arr.length < 2) {
+            return arr;
+          }
+          const middle = Math.floor(arr.length / 2);
+          const left = arr.slice(0, middle);
+          const right = arr.slice(middle);
+          const data = merge(mSort(left), mSort(right));
+
+          datas.push([...data]);
+
+
+          return data;
+        }
+
+        function merge(left, right) {
+          let resultArray = [], leftIndex = 0, rightIndex = 0;
+
+          while (leftIndex < left.length && rightIndex < right.length) {
+            if (left[leftIndex] < right[rightIndex]) {
+              resultArray.push(left[leftIndex]);
+              leftIndex++;
+            } else {
+              resultArray.push(right[rightIndex]);
+              rightIndex++;
+            }
+          }
+
+          return resultArray.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));
+        }
+
+        mSort(data);
+
+        return datas;
+      });
+    }
+
+    /**
+     * 快速排序（Quick Sort）是一种高效的排序算法，采用分治法，通过一个分区操作将待排序的数组分为两个部分，其中一部分的所有数据都比另一部分的所有数据要小，然后再递归地对这两部分数据分别进行快速排序。
+     *
+     * 算法步骤：
+     * 1、选择基准值（Pivot）：从数组中选择一个元素作为基准值，通常选择第一个元素、最后一个元素、中间元素或随机元素。
+     * 2、分区操作：重新排列数组，所有比基准值小的元素放在基准前面，所有比基准值大的元素放在基准后面。在这个分区退出之后，该基准就处于数组的中间位置。
+     * 3、递归排序：递归地将小于基准值的子数组和大于基准值的子数组进行快速排序。
+     * 4、组合：由于快速排序是原地排序，不需要额外的组合步骤。
+     * 
+     * 算法特性：
+     * 时间复杂度：在平均和最好的情况下，快速排序的时间复杂度是 O(n log n)，其中 n 是数组的长度。在最坏的情况下（例如，数组已经排序或所有元素相等），时间复杂度是 O(n^2)。
+     * 空间复杂度：快速排序的空间复杂度是 O(log n)，这是因为递归栈的深度。在最坏的情况下，如果每次分区操作都不能很好地将数组分成两部分，空间复杂度可能达到 O(n)。
+     * 稳定性：快速排序是不稳定的排序算法，因为在分区过程中相同元素的顺序可能会被改变。
+     * 适用场景：快速排序对于大数据集非常有效，特别是当数据分布均匀时。它通常比归并排序更快，因为它的内部循环更简单，而且大多数现代编译器可以很好地优化这种循环。
+     * 
+     * 快速排序的主要缺点是它在最坏情况下的性能较差，但可以通过随机选择基准值来降低这种风险。此外，快速排序不是稳定的排序算法，这在某些需要保持元素相对顺序的应用中可能是一个问题。
+     * 
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function quickSort() {
+      return sortAnimation('快速排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
+
+        // function quickSort(arr) {
+        //   if (arr.length <= 1) {
+        //     return arr;
+        //   }
+        //   let pivotIndex = Math.floor(arr.length / 2);
+        //   let pivot = arr.splice(pivotIndex, 1)[0];
+
+        //   let left = [];
+        //   let right = [];
+
+        //   for (let i = 0; i < arr.length; i++) {
+        //     if (arr[i] < pivot) {
+        //       left.push(arr[i]);
+        //     } else {
+        //       right.push(arr[i]);
+        //     }
+        //   }
+
+        //   return [].concat(quickSort(left), [pivot], quickSort(right));
+        // }
+
+        return datas;
+      });
+    }
+
+    /**
+     * 堆排序（Heap Sort）是一种基于比较的排序算法，它使用二叉堆数据结构来实现。堆排序可以分为两个阶段：建立堆和排序。
+     *
+     * 算法步骤：
+     * 1、建立堆：将无序序列构建成一个堆，根据升序或降序需求选择最大堆或最小堆。
+     * 2、排序：将堆顶元素（最大或最小值）与最后一个元素交换，缩小堆的范围，然后调整堆，重复这个过程直到堆的大小为1。
+     * 
+     * 具体实现：
+     * 1、创建堆：将数组转换为最大堆或最小堆。
+     * 2、交换堆顶和最后一个元素：将堆顶元素与数组的最后一个元素交换，然后更新堆的大小。
+     * 3、堆调整（Heapify）：从交换后的最后一个元素开始，重新调整为堆结构。
+     * 4、重复过程：重复步骤2和3，直到堆的大小减少到1。
+     * 
+     * 算法特性：
+     * 时间复杂度：堆排序的时间复杂度在所有情况下都是 O(n log n)，其中 n 是数组的长度。
+     * 空间复杂度：堆排序的空间复杂度是 O(1)，因为它是原地排序算法，不需要额外的存储空间。
+     * 稳定性：堆排序是不稳定的排序算法，因为在交换过程中相同元素的顺序可能会被改变。
+     * 适用场景：堆排序适用于需要对大量数据进行排序的场景，尤其是当其他基于比较的排序算法（如快速排序）的性能受到不利影响时。
+     * 
+     * 堆排序的主要优点是它在最坏情况下的性能也是 O(n log n)，这使得它在对排序稳定性没有要求的情况下，成为一种可靠的排序算法。然而，由于其逻辑复杂度较高，可能不如快速排序或归并排序在实际应用中那样常见。
+     * 
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function heapSort() {
+      return sortAnimation('堆排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
+
+        // function heapSort(arr) {
+        //   let len = arr.length;
+
+        //   for (let i = Math.floor(len / 2) - 1; i >= 0; i--) {
+        //     heapify(arr, len, i);
+        //   }
+
+        //   for (let i = len - 1; i >= 0; i--) {
+        //     let temp = arr[0];
+        //     arr[0] = arr[i];
+        //     arr[i] = temp;
+
+        //     heapify(arr, i, 0);
+        //   }
+
+        //   return arr;
+        // }
+
+        // function heapify(arr, len, i) {
+        //   let largest = i;
+        //   let left = 2 * i + 1;
+        //   let right = 2 * i + 2;
+
+        //   if (left < len && arr[left] > arr[largest]) {
+        //     largest = left;
+        //   }
+
+        //   if (right < len && arr[right] > arr[largest]) {
+        //     largest = right;
+        //   }
+
+        //   if (largest !== i) {
+        //     let swap = arr[i];
+        //     arr[i] = arr[largest];
+        //     arr[largest] = swap;
+
+        //     heapify(arr, len, largest);
+        //   }
+        // }
+
+        return datas;
+      });
+    }
+
+    /**
+     * 希尔排序（Shell Sort）是插入排序的一种优化版本，由Donald Shell于1959年提出。希尔排序通过引入增量的概念来改进插入排序的性能，特别是对于大范围的记录。增量序列可以是多种不同的序列，常见的有递减序列、fibonacci数列等。
+     *
+     * 算法步骤：
+     * 1、选择增量序列：选择一个增量序列，如递减序列（n/2, n/4, ..., 1）。
+     * 2、增量排序：使用增量序列的第一个值作为间隔，对数组进行分组，每组记录进行插入排序。
+     * 3、缩减增量：将增量序列的下一个值作为新的增量，重复步骤2。
+     * 4、当增量缩减至1时，整个数组的排序完成，此时数组已经是有序的。
+     * 
+     * 算法特性：
+     * 时间复杂度：希尔排序的时间复杂度取决于增量序列的选择。在最坏情况下，时间复杂度是 O(n^2)，但在实际应用中，使用恰当的增量序列可以显著提高效率，接近 O(n log n)。
+     * 空间复杂度：希尔排序的空间复杂度是 O(1)，因为它是原地排序算法，不需要额外的存储空间。
+     * 稳定性：希尔排序是不稳定的排序算法，因为在插入排序过程中相同元素的顺序可能会被改变。
+     * 适用场景：希尔排序适用于原始数据部分有序的情况，增量序列的选择对性能有很大影响。
+     * 
+     * 希尔排序的主要优点是它在原始数据部分有序的情况下，性能优于普通的插入排序。然而，希尔排序的增量序列的选择对算法的性能有很大影响，需要根据实际情况进行选择。
+     * 
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function shellSort() {
+      return sortAnimation('希尔排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
+        let gap = Math.floor(len / 2);
+
+        while (gap > 0) {
+          for (let i = gap; i < len; i++) {
+            let temp = data[i];
+            let j;
+
+            for (j = i; j >= gap && data[j - gap] > temp; j -= gap) {
+              data[j] = data[j - gap];
+              datas.push([...data]);
+            }
+
+            data[j] = temp;
+            datas.push([...data]);
+          }
+
+          gap = Math.floor(gap / 2);
+        }
+
+        return datas;
+      });
+    }
+
+    /**
+     * 计数排序（Counting Sort）是一种线性时间复杂度的排序算法，适用于整数且范围有限的情况。它不是基于比较的排序算法，而是基于键（key）的值进行排序。计数排序的核心思想是使用一个额外的数组来统计待排序数组中每个元素出现的次数，然后根据这些计数来确定每个元素在最终排序数组中的位置。
+     * 
+     * 算法步骤：
+     * 1、找出最大值：找出待排序数组中的最大元素，确定计数数组的大小。
+     * 2、创建计数数组：初始化一个计数数组，长度为最大元素加一，所有元素初始值设为0。
+     * 3、填充计数数组：遍历待排序数组，对于每个元素，将其对应的计数数组元素加一。
+     * 4、计算前缀和：将计数数组的每个元素与前一个元素相加，得到当前元素的累积计数。
+     * 5、反向遍历并放置元素：从待排序数组的最大元素开始，根据计数数组的累积计数来放置元素到新数组中。
+     * 
+     * 算法特性：
+     * 时间复杂度：计数排序的时间复杂度是 O(n + k)，其中 n 是待排序数组的长度，k 是最大元素的值。当 k 远小于 n 时，计数排序非常高效。
+     * 空间复杂度：计数排序的空间复杂度是 O(k)，因为需要一个额外的计数数组。
+     * 稳定性：计数排序是稳定的排序算法，因为它保持了相同元素的相对顺序。
+     * 适用场景：计数排序适用于数据范围不大且数据类型为整数的数组，例如年龄、成绩等。
+     * 
+     * 计数排序在实际应用中非常有用，尤其是在数据具有确定范围且分布均匀时，可以提供非常高效的排序性能。
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function countingSort() {
+      return sortAnimation('计数排序', sourceData, function (data) {
+        let datas = [];
+        let maxValue = Math.max(...data);
+
+        // 1. 创建计数数组
+        const countArray = new Array(maxValue + 1).fill(0);
+
+        // 2. 填充计数数组
+        for (const num of data) {
+          countArray[num]++;
+        }
+
+        // 3. 计算前缀和
+        for (let i = 1; i <= maxValue; i++) {
+          countArray[i] += countArray[i - 1];
+        }
+
+        // 4. 创建输出数组
+        const sortedArray = new Array(data.length);
+
+        // 5. 反向遍历并放置元素
+        for (let i = data.length - 1; i >= 0; i--) {
+          sortedArray[countArray[data[i]] - 1] = data[i];
+          countArray[data[i]]--;
+          datas.push([...sortedArray]);
+        }
+
+        return datas;
+      });
+    }
+
+    /**
+     * 桶排序（Bucket Sort）是一种分布式排序算法，它将元素分布到有限数量的桶里，每个桶再个别排序（有可能再使用别的排序算法或是递归地使用桶排序）。桶排序是快速排序的一种变种，可以看作是将数据分布在若干个有序桶中的特例。
+     * 
+     * 算法步骤：
+     * 1、确定桶的数量：确定桶的数量，通常与数据的范围有关。
+     * 2、分配数据：遍历数组，将每个数据分配到对应的桶中。
+     * 3、对每个桶进行排序：对每个桶内的数据进行排序，可以使用任何排序算法，甚至是桶排序本身（递归）。
+     * 4、合并桶：按顺序合并所有桶中的数据，形成有序数组。
+     * 
+     * 算法特性：
+     * 时间复杂度：桶排序的平均时间复杂度是 O(n + k)，其中 n 是数组的长度，k 是桶的数量。如果所有数据均匀分布在各个桶中，那么时间复杂度可以接近 O(n)。
+     * 空间复杂度：桶排序的空间复杂度是 O(n + k)，因为需要额外的存储空间来存放桶。
+     * 稳定性：桶排序是稳定的排序算法，因为它在各个桶内使用稳定的排序算法。
+     * 适用场景：桶排序适用于数据分布范围不大，且数据分布相对均匀的情况。
+     * 
+     * 桶排序的主要优点是它在数据分布均匀时非常高效。然而，如果数据分布不均匀，某些桶可能会有大量数据，导致算法性能下降。此外，桶排序需要额外的空间来存储桶内的数据。
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function bucketSort() {
+      function insertionSort(arr) {
+        for (let i = 1; i < arr.length; i++) {
+          let j = i - 1;
+          let current = arr[i];
+
+          while (j >= 0 && arr[j] > current) {
+            arr[j + 1] = arr[j];
+            j--;
+          }
+
+          if (j + 1 !== i) {
+            arr[j + 1] = current;
           }
         }
       }
 
-      return { animation, frameQueue, destroy };
+      return sortAnimation('桶排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
+
+        if (len === 0) {
+          return datas;
+        }
+
+        // 桶的数量，可以根据数据范围调整
+        const bucketSize = Math.floor((len * 10) / 100); // 1%的数据量
+        const buckets = new Array(bucketSize);
+
+        // 初始化桶
+        for (let i = 0; i < buckets.length; i++) {
+          buckets[i] = [];
+        }
+
+        // 分配数据到各个桶
+        for (const element of data) {
+          const index = Math.floor((element - Math.min(...data)) * (bucketSize - 1) / (Math.max(...data) - Math.min(...data)));
+          buckets[index].push(element);
+        }
+
+        // 对每个桶进行排序（这里使用插入排序，也可以使用其他排序算法）
+        for (let i = 0; i < buckets.length; i++) {
+          insertionSort(buckets[i]);
+        }
+
+        // 合并桶
+        const sortedArray = [];
+        for (const bucket of buckets) {
+          sortedArray.push(...bucket);
+          datas.push([...sortedArray]);
+        }
+
+        return datas;
+      });
     }
 
+    /**
+     * 基数排序（Radix Sort）是一种非比较型的整数排序算法，它按照低位先排序，然后逐渐向高位扩展排序。基数排序可以用于数字、字符串或任何可以分解为多个位的序列。其核心思想是将数字按位数切割成不同的部分，然后按每个部分进行排序。
+     * 
+     * 算法步骤：
+     * 1、确定最大数的位数：找出数组中最大数的位数，这将决定排序的轮数。
+     * 2、按位排序：从最低位开始，逐步对每一位进行排序。
+     * 3、使用桶排序：对于每一位，使用桶排序的方法将数字分配到对应的桶中。
+     * 4、收集结果：将所有桶中的数字按顺序放回原数组。
+     * 5、重复过程：对下一位重复步骤3和4，直到达到最高位。
+     * 
+     * 算法特性：
+     * 时间复杂度：基数排序的时间复杂度通常为 O(nk)，其中 n 是数组的长度，k 是最大数的位数。当 k 远小于 n 时，基数排序非常高效。
+     * 空间复杂度：基数排序的空间复杂度为 O(n+k)，因为需要额外的存储空间来存放桶和临时数组。
+     * 稳定性：基数排序是稳定的排序算法，因为它在每个桶内保持了元素的相对顺序。
+     * 适用场景：基数排序适用于数字排序，特别是当数字的位数 k 远小于数组长度 n 时。
+     * 
+     * 基数排序的主要优点是它在特定条件下（如数字位数较少）可以非常高效。然而，它的空间复杂度相对较高，因为它需要额外的存储空间来实现桶排序。此外，基数排序通常只适用于整数排序，对于浮点数或更复杂的数据类型，可能需要进行适当的修改。
+     *
+     * @returns {{ animation: () => void; frameQueue: {}; canvas: HTMLCanvasElement; }}
+     */
+    function radixSort(arr) {
+      return sortAnimation('基数排序', sourceData, function (data) {
+        let datas = [];
+        let len = data.length;
 
-    let bubble = bubbleSort();
-    let selection = selectionSort();
+        // function radixSort(arr) {
+        //   let maxNumber = Math.max(...arr);
+        //   let digit = Math.floor(Math.log10(maxNumber) + 1);
+
+        //   for (let i = 0; i < digit; i++) {
+        //     arr = countingSort(arr, Math.pow(10, i));
+        //   }
+
+        //   return arr;
+        // }
+
+        // function countingSortByDigit(arr, digit) {
+        //   let range = 10;
+        //   let count = new Array(range);
+        //   let output = new Array(arr.length);
+
+        //   for (let i = 0; i < count.length; i++) {
+        //     count[i] = 0;
+        //   }
+
+        //   for (let i = 0; i < arr.length; i++) {
+        //     let index = Math.floor((arr[i] / Math.pow(10, digit)) % range);
+        //     count[index]++;
+        //   }
+
+        //   for (let i = 1; i < count.length; i++) {
+        //     count[i] += count[i - 1];
+        //   }
+
+        //   for (let i = arr.length - 1; i >= 0; i--) {
+        //     let index = Math.floor((arr[i] / Math.pow(10, digit)) % range);
+        //     output[count[index] - 1] = arr[i];
+        //     count[index]--;
+        //   }
+
+        //   return output;
+        // }
+
+        return datas;
+      });
+    }
+
+    let sortArray = createArray();
+
+    function createArray() {
+      return [
+        bubbleSort(),
+        selectionSort(),
+        insertionSort(),
+        // mergeSort(),
+        // quickSort(),
+        // heapSort(),
+        // shellSort(),
+        countingSort(),
+        bucketSort(),
+        // radixSort()
+      ]
+    }
 
     /**
      * 开始动画
      */
     function startSort() {
-      bubble.animation();
-      selection.animation();
+      document.getElementById('start').style.display = 'none';
+      document.getElementById('pause').style.display = '';
+      sortArray.forEach(item => {
+        item.animation();
+      });
     }
 
     /**
      * 暂停动画
      */
     function pauseSort() {
-      while (bubble.frameQueue.length) {
-        cancelAnimationFrame(bubble.frameQueue.pop());
-      }
-      while (selection.frameQueue.length) {
-        cancelAnimationFrame(selection.frameQueue.pop());
-      }
+      document.getElementById('start').style.display = '';
+      document.getElementById('pause').style.display = 'none';
+      sortArray.forEach(item => {
+        while (item.frameQueue.length) {
+          cancelAnimationFrame(item.frameQueue.pop());
+        }
+      });
     }
 
     /**
@@ -246,11 +731,11 @@
      */
     function resetSort() {
       pauseSort();
-      bubble.destroy();
-      selection.destroy();
+      sortArray.forEach(item => {
+        destroy(item.canvas);
+      });
       sourceData = shuffleArray(array);
-      bubble = bubbleSort();
-      selection = selectionSort();
+      sortArray = createArray();
     }
 
     /**
